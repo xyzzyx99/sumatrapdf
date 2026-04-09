@@ -369,6 +369,20 @@ static void FindThread(FindThreadData* ftd) {
         SafeEngineRelease(&engine);
     };
 
+    // for lazy chapter loading: ensure all chapters are loaded before searching
+    if (engine->SupportsLazyChapterLayout()) {
+        int nChapters = engine->ChapterCount();
+        for (int ch = 0; ch < nChapters; ch++) {
+            engine->EnsureChapterLoaded(ch);
+        }
+        // update TextSearch's nPages to cover all pages
+        int totalPages = engine->PageCount();
+        if (totalPages > textSearch->nPages) {
+            textSearch->nPages = totalPages;
+            textSearch->pagesToSkip.SetSize(totalPages);
+        }
+    }
+
     TextSel* rect;
     textSearch->progressCb = MkFunc1<FindThreadData, ProgressUpdateData*>(UpdateSearchProgress, ftd);
     textSearch->SetDirection(ftd->direction);
