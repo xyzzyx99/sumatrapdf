@@ -110,6 +110,12 @@ struct DisplayModel : DocController {
     TempStr GetPageLabeTemp(int pageNo) const override;
     int GetPageByLabel(const char* label) const override;
 
+    // chapter/location support
+    int ChapterCount() const override;
+    int ChapterPageCount(int chapter) const override;
+    Location LocationFromPageNo(int pageNo) const override;
+    int PageNoFromLocation(Location loc) const override;
+
     // common shortcuts
     bool ValidPageNo(int pageNo) const override;
     bool GoToNextPage() override;

@@ -1175,10 +1175,16 @@ void ControllerCallbackHandler::PageNoChanged(DocController* ctrl, int pageNo) {
     }
 
     if (kInvalidPageNo != pageNo) {
-        TempStr label = win->ctrl->GetPageLabeTemp(pageNo);
+        TempStr label;
+        if (win->ctrl->HasMultipleChapters()) {
+            Location loc = win->ctrl->LocationFromPageNo(pageNo);
+            label = win->ctrl->GetLocationLabelTemp(loc);
+        } else {
+            label = win->ctrl->GetPageLabeTemp(pageNo);
+        }
         HwndSetText(win->hwndPageEdit, label);
         ToolbarUpdateStateForWindow(win, false);
-        if (win->ctrl->HasPageLabels()) {
+        if (win->ctrl->HasPageLabels() || win->ctrl->HasMultipleChapters()) {
             UpdateToolbarPageText(win, win->ctrl->PageCount(), true);
         }
     }
@@ -1410,6 +1416,18 @@ static void ReplaceDocumentInCurrentTab(LoadArgs* args, DocController* ctrl, Fil
 
     if (fs) {
         ss.page = fs->pageNo;
+        // restore page from Location if available (for multi-chapter documents)
+        if (fs->location && win->ctrl && win->ctrl->HasMultipleChapters()) {
+            int page = 0;
+            int chapter = 0;
+            if (str::Parse(fs->location, "%d/%d", &page, &chapter)) {
+                Location loc(chapter, page);
+                int pageNo = win->ctrl->PageNoFromLocation(loc);
+                if (win->ctrl->ValidPageNo(pageNo)) {
+                    ss.page = pageNo;
+                }
+            }
+        }
         displayMode = DisplayModeFromString(fs->displayMode, DisplayMode::Automatic);
         showAsFullScreen = WIN_STATE_FULLSCREEN == fs->windowState;
         if (fs->windowState == WIN_STATE_NORMAL) {

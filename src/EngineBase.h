@@ -397,6 +397,21 @@ class EngineBase {
     // number of pages the loaded document contains
     int PageCount() const;
 
+    // chapter/location support
+    // number of chapters in the document (default: 1 for single-chapter docs)
+    virtual int ChapterCount() const { return 1; }
+    // number of pages in the given chapter (0-based chapter index)
+    virtual int ChapterPageCount(int chapter) const {
+        ReportIf(chapter != 0);
+        return pageCount;
+    }
+    // convert a 1-based flat page number to a Location
+    virtual Location LocationFromPageNo(int pageNo) const { return Location::FromPageNo(pageNo); }
+    // convert a Location to a 1-based flat page number
+    virtual int PageNoFromLocation(Location loc) const { return loc.page + 1; }
+    // true if document has more than one chapter (e.g. EPUB, HTML)
+    bool HasMultipleChapters() const { return ChapterCount() > 1; }
+
     // the box containing the visible page content (usually RectF(0, 0, pageWidth, pageHeight))
     virtual RectF PageMediabox(int pageNo) = 0;
     // the box inside PageMediabox that actually contains any relevant content

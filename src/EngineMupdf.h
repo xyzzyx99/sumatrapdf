@@ -71,6 +71,11 @@ class EngineMupdf : public EngineBase {
     TempStr GetPageLabeTemp(int pageNo) const override;
     int GetPageByLabel(const char* label) const override;
 
+    int ChapterCount() const override;
+    int ChapterPageCount(int chapter) const override;
+    Location LocationFromPageNo(int pageNo) const override;
+    int PageNoFromLocation(Location loc) const override;
+
     fz_context* Ctx() const;
 
     // make sure to never ask for pagesAccess in an ctxAccess

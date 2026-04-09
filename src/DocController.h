@@ -13,6 +13,26 @@ struct FileState;
 enum class DisplayMode;
 
 using OnBitmapRendered = Func1<RenderedBitmap*>;
+// A location within a document, identified by chapter and page within that chapter.
+// Mirrors mupdf's fz_location. Both fields are 0-based.
+// For single-chapter documents (PDF, DjVu, images, etc.), chapter is always 0.
+// For multi-chapter documents (EPUB, HTML), chapter identifies the chapter.
+struct Location {
+    int chapter = 0;
+    int page = 0;
+
+    Location() = default;
+    Location(int chapter, int page) : chapter(chapter), page(page) {}
+
+    // Create a Location for a single-chapter document from a 1-based page number.
+    static Location FromPageNo(int pageNo) { return Location(0, pageNo - 1); }
+
+    // Convert to a 1-based page number within the chapter (for display purposes).
+    int PageInChapter1Based() const { return page + 1; }
+
+    bool operator==(const Location& other) const { return chapter == other.chapter && page == other.page; }
+    bool operator!=(const Location& other) const { return !(*this == other); }
+};
 
 struct ILinkHandler {
     virtual ~ILinkHandler() {};
@@ -95,6 +115,35 @@ struct DocController {
     virtual bool HasPageLabels() const { return false; }
     virtual TempStr GetPageLabeTemp(int pageNo) const { return str::FormatTemp("%d", pageNo); }
     virtual int GetPageByLabel(const char* label) const { return atoi(label); }
+
+    // chapter/location support (delegates to the engine via AsFixed())
+    virtual int ChapterCount() const { return 1; }
+    virtual int ChapterPageCount(int chapter) const {
+        (void)chapter;
+        return PageCount();
+    }
+    virtual Location LocationFromPageNo(int pageNo) const { return Location::FromPageNo(pageNo); }
+    virtual int PageNoFromLocation(Location loc) const { return loc.page + 1; }
+    bool HasMultipleChapters() const { return ChapterCount() > 1; }
+    virtual Location CurrentLocation() const { return LocationFromPageNo(CurrentPageNo()); }
+    // returns a display label for a Location: "page" for single-chapter, "page/chapter" for multi-chapter
+    virtual TempStr GetLocationLabelTemp(Location loc) const {
+        if (HasMultipleChapters()) {
+            return str::FormatTemp("%d/%d", loc.page + 1, loc.chapter + 1);
+        }
+        return str::FormatTemp("%d", PageNoFromLocation(loc));
+    }
+    // parse a location label string; returns -1 as pageNo if invalid
+    virtual int GetPageByLocationLabel(const char* label) const {
+        int first = 0;
+        int second = 0;
+        if (str::Parse(label, "%d/%d", &first, &second) && first > 0 && second > 0) {
+            // format is "page/chapter" (1-based)
+            Location loc(second - 1, first - 1);
+            return PageNoFromLocation(loc);
+        }
+        return GetPageByLabel(label);
+    }
 
     // common shortcuts
     virtual bool ValidPageNo(int pageNo) const { return 1 <= pageNo && pageNo <= PageCount(); }

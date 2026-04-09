@@ -3794,6 +3794,62 @@ int EngineMupdf::GetPageByLabel(const char* label) const {
     return pageNo;
 }
 
+int EngineMupdf::ChapterCount() const {
+    auto ctx = _ctx;
+    int nc = 0;
+    fz_var(nc);
+    fz_try(ctx) {
+        nc = fz_count_chapters(ctx, _doc);
+    }
+    fz_catch(ctx) {
+        nc = 1;
+    }
+    return nc;
+}
+
+int EngineMupdf::ChapterPageCount(int chapter) const {
+    auto ctx = _ctx;
+    int np = 0;
+    fz_var(np);
+    fz_try(ctx) {
+        np = fz_count_chapter_pages(ctx, _doc, chapter);
+    }
+    fz_catch(ctx) {
+        np = 0;
+    }
+    return np;
+}
+
+Location EngineMupdf::LocationFromPageNo(int pageNo) const {
+    auto ctx = _ctx;
+    fz_location loc = {0, 0};
+    fz_var(loc);
+    fz_try(ctx) {
+        loc = fz_location_from_page_number(ctx, _doc, pageNo - 1);
+    }
+    fz_catch(ctx) {
+        loc.chapter = 0;
+        loc.page = pageNo - 1;
+    }
+    return Location(loc.chapter, loc.page);
+}
+
+int EngineMupdf::PageNoFromLocation(Location loc) const {
+    auto ctx = _ctx;
+    fz_location fzloc;
+    fzloc.chapter = loc.chapter;
+    fzloc.page = loc.page;
+    int pageNo = 0;
+    fz_var(pageNo);
+    fz_try(ctx) {
+        pageNo = fz_page_number_from_location(ctx, _doc, fzloc);
+    }
+    fz_catch(ctx) {
+        pageNo = loc.page;
+    }
+    return pageNo + 1; // convert to 1-based
+}
+
 bool IsEngineMupdfSupportedFileType(Kind kind) {
     if (kind == kindFilePDF) {
         return true;

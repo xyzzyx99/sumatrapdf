@@ -287,6 +287,19 @@ void SetTabState(WindowTab* tab, TabState* state) {
     DocController* ctrl = tab->ctrl;
     DisplayModel* dm = tab->AsFixed();
 
+    // restore page number from Location if available (for multi-chapter documents)
+    if (state->location && ctrl->HasMultipleChapters()) {
+        int page = 0;
+        int chapter = 0;
+        if (str::Parse(state->location, "%d/%d", &page, &chapter)) {
+            Location loc(chapter, page);
+            int pageNo = ctrl->PageNoFromLocation(loc);
+            if (ctrl->ValidPageNo(pageNo)) {
+                state->pageNo = pageNo;
+            }
+        }
+    }
+
     // validate page number from session state
     // TODO: figure out how this happens in the first place i.e.
     // why TabState->pageNo etc. gets saved as 0

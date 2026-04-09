@@ -499,6 +499,11 @@ FileStates [
     ; number of the last read page
     PageNo = 1
 
+    ; chapter/page location in the document, serialized as 'chapter/page'
+    ; (0-based). If set, takes precedence over PageNo for multi-chapter
+    ; documents
+    Location =
+
     ; zoom (in %) or one of those values: fit page, fit width, fit content
     Zoom = fit page
 
@@ -547,6 +552,9 @@ SessionData [
 
         ; number of the last read page
         PageNo = 1
+
+        ; same as FileStates -> Location
+        Location =
 
         ; same as FileStates -> Zoom
         Zoom = fit page

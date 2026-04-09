@@ -144,6 +144,23 @@ int DisplayModel::GetPageByLabel(const char* label) const {
     return engine->GetPageByLabel(label);
 }
 
+// chapter/location support
+int DisplayModel::ChapterCount() const {
+    return engine->ChapterCount();
+}
+
+int DisplayModel::ChapterPageCount(int chapter) const {
+    return engine->ChapterPageCount(chapter);
+}
+
+Location DisplayModel::LocationFromPageNo(int pageNo) const {
+    return engine->LocationFromPageNo(pageNo);
+}
+
+int DisplayModel::PageNoFromLocation(Location loc) const {
+    return engine->PageNoFromLocation(loc);
+}
+
 // common shortcuts
 bool DisplayModel::ValidPageNo(int pageNo) const {
     if (!engine) {
@@ -283,6 +300,13 @@ void DisplayModel::GetDisplayState(FileState* fs) {
     }
     fs->rotation = rotation;
     fs->displayR2L = displayR2L;
+
+    // save chapter/page location for multi-chapter documents
+    str::FreePtr(&fs->location);
+    if (engine->HasMultipleChapters()) {
+        Location loc = engine->LocationFromPageNo(ss.page);
+        fs->location = str::Format("%d/%d", loc.page, loc.chapter);
+    }
 
     free(fs->decryptionKey);
     fs->decryptionKey = engine->GetDecryptionKey();

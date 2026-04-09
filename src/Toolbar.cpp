@@ -790,7 +790,7 @@ static LRESULT CALLBACK WndProcPageBox(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp
         switch (wp) {
             case VK_RETURN: {
                 char* s = HwndGetTextTemp(win->hwndPageEdit);
-                int newPageNo = win->ctrl->GetPageByLabel(s);
+                int newPageNo = win->ctrl->GetPageByLocationLabel(s);
                 if (win->ctrl->ValidPageNo(newPageNo)) {
                     win->ctrl->GoToPage(newPageNo, true);
                     HwndSetFocus(win->hwndFrame);
@@ -864,13 +864,19 @@ void UpdateToolbarPageText(MainWindow* win, int pageCount, bool updateOnly) {
         txt = (TempStr) " ";
         minSize.dx = 0;
         size2.dx = 0;
+    } else if (win->ctrl && win->ctrl->HasMultipleChapters()) {
+        Location loc = win->ctrl->CurrentLocation();
+        int chapterPages = win->ctrl->ChapterPageCount(loc.chapter);
+        int nChapters = win->ctrl->ChapterCount();
+        txt = str::FormatTemp(" / %d/%d", chapterPages, nChapters);
+        size2 = HwndMeasureText(win->hwndPageTotal, txt);
+        minSize.dx = size2.dx;
     } else if (!win->ctrl || !win->ctrl->HasPageLabels()) {
         txt = str::FormatTemp(" / %d", pageCount);
         size2 = HwndMeasureText(win->hwndPageTotal, txt);
         minSize.dx = size2.dx;
     } else {
         txt = str::FormatTemp("%d / %d", win->ctrl->CurrentPageNo(), pageCount);
-        // TempStr txt2 = str::FormatTemp(" (%d / %d)", pageCount, pageCount);
         size2 = HwndMeasureText(win->hwndPageTotal, txt);
     }
     labelDx = size2.dx;
