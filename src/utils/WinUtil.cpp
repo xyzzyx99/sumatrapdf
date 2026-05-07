@@ -1519,21 +1519,97 @@ bool AppendTextToClipboard(const char* s) {
     return CopyOrAppendTextToClipboard(s, true);
 }
 
+static HBITMAP CreateOpaqueClipboardBitmap(HBITMAP hbmp) {
+    if (!hbmp) {
+        return nullptr;
+    }
+
+    BITMAP bmpInfo{};
+    if (0 == GetObject(hbmp, sizeof(bmpInfo), &bmpInfo)) {
+        return nullptr;
+    }
+
+    HBITMAP clipboardBmp = (HBITMAP)CopyImage(hbmp, IMAGE_BITMAP, bmpInfo.bmWidth, bmpInfo.bmHeight, 0);
+    if (!clipboardBmp || !bmpInfo.bmBits) {
+        return clipboardBmp;
+    }
+
+    BitmapPixels* src = GetBitmapPixels(hbmp);
+    if (!src) {
+        return clipboardBmp;
+    }
+    defer {
+        FinalizeBitmapPixels(src);
+    };
+
+    if (src->nBytesPerPixel != 4) {
+        return clipboardBmp;
+    }
+
+    bool hasTransparency = false;
+    for (int y = 0; y < src->size.dy && !hasTransparency; y++) {
+        u8* row = src->pixels + y * src->nBytesPerRow;
+        for (int x = 0; x < src->size.dx; x++) {
+            if (row[x * 4 + 3] != 0xFF) {
+                hasTransparency = true;
+                break;
+            }
+        }
+    }
+    if (!hasTransparency) {
+        return clipboardBmp;
+    }
+
+    BITMAPINFO bmi{};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = src->size.dx;
+    bmi.bmiHeader.biHeight = -src->size.dy;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+    bmi.bmiHeader.biSizeImage = src->size.dx * src->size.dy * 4;
+
+    void* dstData = nullptr;
+    HBITMAP flattenedBmp = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &dstData, nullptr, 0);
+    if (!flattenedBmp || !dstData) {
+        DeleteObject(flattenedBmp);
+        return clipboardBmp;
+    }
+
+    u8* dst = (u8*)dstData;
+    for (int y = 0; y < src->size.dy; y++) {
+        u8* srcRow = src->pixels + y * src->nBytesPerRow;
+        u8* dstRow = dst + y * src->size.dx * 4;
+        for (int x = 0; x < src->size.dx; x++) {
+            u8* srcPx = srcRow + x * 4;
+            u8* dstPx = dstRow + x * 4;
+            u8 alpha = srcPx[3];
+            dstPx[0] = (u8)(srcPx[0] + ((255 - srcPx[0]) * (255 - alpha) + 127) / 255);
+            dstPx[1] = (u8)(srcPx[1] + ((255 - srcPx[1]) * (255 - alpha) + 127) / 255);
+            dstPx[2] = (u8)(srcPx[2] + ((255 - srcPx[2]) * (255 - alpha) + 127) / 255);
+            dstPx[3] = 0xFF;
+        }
+    }
+
+    HBITMAP opaqueBmp = (HBITMAP)CopyImage(flattenedBmp, IMAGE_BITMAP, src->size.dx, src->size.dy, 0);
+    DeleteObject(flattenedBmp);
+    if (opaqueBmp) {
+        DeleteObject(clipboardBmp);
+        return opaqueBmp;
+    }
+    return clipboardBmp;
+}
+
 static bool SetClipboardImage(HBITMAP hbmp) {
     if (!hbmp) {
         return false;
     }
-    BITMAP bmpInfo;
-    GetObject(hbmp, sizeof(BITMAP), &bmpInfo);
-    HANDLE h = nullptr;
-    if (bmpInfo.bmBits != nullptr) {
-        // GDI+ produced HBITMAPs are DIBs instead of DDBs which
-        // aren't correctly handled by the clipboard, so create a
-        // clipboard-safe clone
-        ScopedGdiObj<HBITMAP> ddbBmp((HBITMAP)CopyImage(hbmp, IMAGE_BITMAP, bmpInfo.bmWidth, bmpInfo.bmHeight, 0));
-        h = SetClipboardData(CF_BITMAP, ddbBmp);
+    HBITMAP clipboardBmp = CreateOpaqueClipboardBitmap(hbmp);
+    HANDLE h = SetClipboardData(CF_BITMAP, clipboardBmp ? clipboardBmp : hbmp);
+    if (h) {
+        clipboardBmp = nullptr;
     } else {
-        h = SetClipboardData(CF_BITMAP, hbmp);
+        DeleteObject(clipboardBmp);
     }
     return h != nullptr;
 }
