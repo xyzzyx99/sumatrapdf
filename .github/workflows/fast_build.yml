@@ -7,9 +7,9 @@ on:
     types: [build-pre-rel]
 jobs:
   build:
-    name: Build
+    name: Fast_Build
     #runs-on: SumatraBuilder
-    runs-on: windows-2025-vs2026
+    runs-on: windows-latest
     steps:
       - name: Check out source code
         uses: actions/checkout@v6
