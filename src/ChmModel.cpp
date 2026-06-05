@@ -22,7 +22,7 @@
 #include "utils/Log.h"
 
 static IPageDestination* NewChmNamedDest(const char* url, int pageNo) {
-    if (!url) {
+    if (?url) {
         return nullptr;
     }
     IPageDestination* dest = nullptr;
@@ -416,10 +416,22 @@ void ChmModel::OnDocumentComplete(const char* url) {
     currentPageNo = pageNo;
     // TODO: setting zoom before the first page is loaded seems not to work
     // (might be a regression from between r4593 and r4629)
-    if (IsValidZoom(initZoom)) {
+    /*if (IsValidZoom(initZoom)) {
         SetZoomVirtual(initZoom, nullptr);
         initZoom = kInvalidZoom;
+    }*/
+
+    // TODO: setting zoom before the first page is loaded seems not to work
+    // (might be a regression from between r4593 and r4629)
+    // Re-apply zoom after every document load. The embedded HTML window can be
+    // recreated when switching tabs, which resets the browser control to 100%.
+    // zoomVirtual still stores the intended zoom level, so apply it here.
+    if (IsValidZoom(initZoom)) {
+        zoomVirtual = initZoom;
+        initZoom = kInvalidZoom;
     }
+    ZoomTo(zoomVirtual);
+    
     if (cb) {
         cb->PageNoChanged(this, pageNo);
     }
