@@ -1,10 +1,10 @@
 name: Fast_Build
 on:
-  workflow_dispatch:
-  push:
-  pull_request:
-  repository_dispatch:
-    types: [build-pre-rel]
+  #push:
+  #pull_request:
+  #repository_dispatch:
+  #  types: [build-pre-rel]
+  workflow_dispatch:    
 jobs:
   build:
     name: Fast_Build
