@@ -22,7 +22,7 @@
 #include "utils/Log.h"
 
 static IPageDestination* NewChmNamedDest(const char* url, int pageNo) {
-    if (?url) {
+    if (!url) {
         return nullptr;
     }
     IPageDestination* dest = nullptr;
