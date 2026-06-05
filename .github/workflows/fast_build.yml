@@ -9,7 +9,8 @@ jobs:
   build:
     name: Fast_Build
     #runs-on: SumatraBuilder
-    runs-on: windows-latest
+    #runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     steps:
       - name: Check out source code
         uses: actions/checkout@v6
