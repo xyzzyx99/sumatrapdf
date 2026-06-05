@@ -198,10 +198,19 @@ bool ChmModel::DisplayPage(const char* pageUrl) {
     int pageNo = pages.Find(url) + 1;
     bool restoreScrollAfterLoad = restoreHtmlScrollPos && pageNo > 0 && pageNo == oldPageNo;
     if (pageNo > 0) {
+        if (!restoreScrollAfterLoad) {
+            SaveHtmlScrollPosForPage(oldPageNo);
+            skipNextBeforeNavigateScrollSave = true;
+        }
         currentPageNo = pageNo;
-    }
-    if (!restoreScrollAfterLoad) {
-        restoreHtmlScrollPos = false;
+
+        PointF savedPos;
+        if (GetSavedHtmlScrollPosForPage(pageNo, &savedPos)) {
+            htmlScrollPos = savedPos;
+            restoreHtmlScrollPos = true;
+        } else if (!restoreScrollAfterLoad) {
+            restoreHtmlScrollPos = false;
+        }
     }
 
     // This is a hack that seems to be needed for some chm files where
@@ -229,6 +238,9 @@ void ChmModel::ScrollTo(int pageNo, RectF rect, float zoom) {
     if (rect.x >= 0 || rect.y >= 0) {
         htmlScrollPos = PointF(rect.x, rect.y);
         restoreHtmlScrollPos = true;
+        if (ValidPageNo(pageNo)) {
+            SaveHtmlScrollPosForUrl(pages.At(pageNo - 1), htmlScrollPos);
+        }
     }
     GoToPage(pageNo, false);
 }
@@ -307,7 +319,11 @@ void ChmModel::SetZoomVirtual(float zoom, Point*) {
 }
 
 void ChmModel::SaveHtmlScrollPos() {
-    if (!htmlWindow) {
+    SaveHtmlScrollPosForPage(currentPageNo);
+}
+
+void ChmModel::SaveHtmlScrollPosForPage(int pageNo) {
+    if (!htmlWindow || !ValidPageNo(pageNo)) {
         return;
     }
     Point pos = htmlWindow->GetScrollPos();
@@ -315,6 +331,38 @@ void ChmModel::SaveHtmlScrollPos() {
         return;
     }
     htmlScrollPos = PointF((float)pos.x, (float)pos.y);
+    SaveHtmlScrollPosForUrl(pages.At(pageNo - 1), htmlScrollPos);
+}
+
+void ChmModel::SaveHtmlScrollPosForUrl(const char* url, PointF pos) {
+    if (!url || pos.x < 0 || pos.y < 0) {
+        return;
+    }
+
+    TempStr plainUrl = url::GetFullPathTemp(url);
+    int idx = htmlScrollUrls.Find(plainUrl);
+    if (idx >= 0) {
+        htmlScrollPositions.At(idx) = pos;
+        return;
+    }
+
+    htmlScrollUrls.Append(plainUrl);
+    htmlScrollPositions.Append(pos);
+}
+
+bool ChmModel::GetSavedHtmlScrollPosForPage(int pageNo, PointF* pos) const {
+    if (!pos || !ValidPageNo(pageNo)) {
+        return false;
+    }
+
+    TempStr plainUrl = url::GetFullPathTemp(pages.At(pageNo - 1));
+    int idx = htmlScrollUrls.Find(plainUrl);
+    if (idx < 0) {
+        return false;
+    }
+
+    *pos = htmlScrollPositions.At(idx);
+    return pos->x >= 0 || pos->y >= 0;
 }
 
 void ChmModel::RestoreHtmlScrollPos() {
@@ -458,6 +506,13 @@ void ChmModel::OnDocumentComplete(const char* url) {
         return;
     }
     currentPageNo = pageNo;
+
+    PointF savedPos;
+    if (GetSavedHtmlScrollPosForPage(pageNo, &savedPos)) {
+        htmlScrollPos = savedPos;
+        restoreHtmlScrollPos = true;
+    }
+
     // TODO: setting zoom before the first page is loaded seems not to work
     // (might be a regression from between r4593 and r4629)
     /*if (IsValidZoom(initZoom)) {
@@ -485,6 +540,12 @@ void ChmModel::OnDocumentComplete(const char* url) {
 // Called before we start loading html for a given url. Will block
 // loading if returns false.
 bool ChmModel::OnBeforeNavigate(const char* url, bool newWindow) {
+    if (skipNextBeforeNavigateScrollSave) {
+        skipNextBeforeNavigateScrollSave = false;
+    } else {
+        SaveHtmlScrollPosForPage(currentPageNo);
+    }
+
     // ensure that JavaScript doesn't keep the focus
     // in the HtmlWindow when a new page is loaded
     if (cb) {
