@@ -133,6 +133,8 @@ void ChmModel::RemoveParentHwnd() {
     if (!htmlWindow && !htmlWindowCb) {
         return;
     }
+    SaveHtmlScrollPos();
+    restoreHtmlScrollPos = true;
     delete htmlWindow;
     htmlWindow = nullptr;
     delete htmlWindowCb;
@@ -192,9 +194,14 @@ bool ChmModel::DisplayPage(const char* pageUrl) {
     }
 
     TempStr url = url::GetFullPathTemp(pageUrl);
+    int oldPageNo = currentPageNo;
     int pageNo = pages.Find(url) + 1;
+    bool restoreScrollAfterLoad = restoreHtmlScrollPos && pageNo > 0 && pageNo == oldPageNo;
     if (pageNo > 0) {
         currentPageNo = pageNo;
+    }
+    if (!restoreScrollAfterLoad) {
+        restoreHtmlScrollPos = false;
     }
 
     // This is a hack that seems to be needed for some chm files where
@@ -215,8 +222,15 @@ bool ChmModel::DisplayPage(const char* pageUrl) {
     return pageNo > 0;
 }
 
-void ChmModel::ScrollTo(int, RectF, float) {
-    ReportIf(true);
+void ChmModel::ScrollTo(int pageNo, RectF rect, float zoom) {
+    if (IsValidZoom(zoom)) {
+        SetZoomVirtual(zoom, nullptr);
+    }
+    if (rect.x >= 0 || rect.y >= 0) {
+        htmlScrollPos = PointF(rect.x, rect.y);
+        restoreHtmlScrollPos = true;
+    }
+    GoToPage(pageNo, false);
 }
 
 bool ChmModel::HandleLink(IPageDestination* link, ILinkHandler*) {
@@ -290,6 +304,36 @@ void ChmModel::SetZoomVirtual(float zoom, Point*) {
     ZoomTo(zoom);
     zoomVirtual = zoom;
     initZoom = zoom;
+}
+
+void ChmModel::SaveHtmlScrollPos() {
+    if (!htmlWindow) {
+        return;
+    }
+    Point pos = htmlWindow->GetScrollPos();
+    if (pos.x < 0 && pos.y < 0) {
+        return;
+    }
+    htmlScrollPos = PointF((float)pos.x, (float)pos.y);
+}
+
+void ChmModel::RestoreHtmlScrollPos() {
+    if (!htmlWindow || !restoreHtmlScrollPos) {
+        return;
+    }
+    restoreHtmlScrollPos = false;
+    if (htmlScrollPos.x < 0 && htmlScrollPos.y < 0) {
+        return;
+    }
+    int x = (int)htmlScrollPos.x;
+    int y = (int)htmlScrollPos.y;
+    if (x < 0) {
+        x = 0;
+    }
+    if (y < 0) {
+        y = 0;
+    }
+    htmlWindow->SetScrollPos(Point(x, y));
 }
 
 void ChmModel::ZoomTo(float zoomLevel) const {
@@ -431,7 +475,8 @@ void ChmModel::OnDocumentComplete(const char* url) {
         initZoom = kInvalidZoom;
     }
     ZoomTo(zoomVirtual);
-    
+    RestoreHtmlScrollPos();
+
     if (cb) {
         cb->PageNoChanged(this, pageNo);
     }
@@ -620,7 +665,8 @@ void ChmModel::GetDisplayState(FileState* fs) {
     ZoomToString(&fs->zoom, GetZoomVirtual(), fs);
 
     fs->pageNo = CurrentPageNo();
-    fs->scrollPos = PointF();
+    SaveHtmlScrollPos();
+    fs->scrollPos = htmlScrollPos;
 }
 
 struct ChmThumbnailTask : HtmlWindowCallback {

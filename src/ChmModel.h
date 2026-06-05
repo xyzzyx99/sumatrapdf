@@ -81,6 +81,8 @@ struct ChmModel : DocController {
     HtmlWindowCallback* htmlWindowCb = nullptr;
     float initZoom = kInvalidZoom;
     float zoomVirtual = 100.0f;
+    PointF htmlScrollPos = PointF(-1, -1);
+    bool restoreHtmlScrollPos = false;
 
     Vec<ChmCacheEntry*> urlDataCache;
     // use a pool allocator for strings that aren't freed until this ChmModel
@@ -92,5 +94,7 @@ struct ChmModel : DocController {
 
     ChmCacheEntry* FindDataForUrl(const char* url) const;
 
+    void SaveHtmlScrollPos();
+    void RestoreHtmlScrollPos();
     void ZoomTo(float zoomLevel) const;
 };
