@@ -80,6 +80,7 @@ struct ChmModel : DocController {
     HtmlWindow* htmlWindow = nullptr;
     HtmlWindowCallback* htmlWindowCb = nullptr;
     float initZoom = kInvalidZoom;
+    float zoomVirtual = 100.0f;
 
     Vec<ChmCacheEntry*> urlDataCache;
     // arena for strings that aren't freed until this ChmModel is deleted

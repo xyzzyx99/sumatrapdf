@@ -291,6 +291,7 @@ void ChmModel::SetZoomVirtual(float zoom, Point*) {
         zoom = 100.0f;
     }
     ZoomTo(zoom);
+    zoomVirtual = zoom;
     initZoom = zoom;
 }
 
@@ -301,10 +302,7 @@ void ChmModel::ZoomTo(float zoomLevel) const {
 }
 
 float ChmModel::GetZoomVirtual(bool) const {
-    if (!htmlWindow) {
-        return 100;
-    }
-    return (float)htmlWindow->GetZoomPercent();
+    return zoomVirtual;
 }
 
 class ChmTocBuilder : public EbookTocVisitor {
