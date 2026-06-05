@@ -40,7 +40,7 @@ jobs:
           R2_ACCESS: ${{ secrets.R2_ACCESS }}
           BB_SECRET: ${{ secrets.BB_SECRET }}
           BB_ACCESS: ${{ secrets.BB_ACCESS }}
-        run: bun .\cmd\build-ci.ts
+        run: bun .\cmd\ci-build.ts
       - name: List build outputs
         shell: pwsh
         run: |
