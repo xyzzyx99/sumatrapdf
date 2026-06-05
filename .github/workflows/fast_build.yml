@@ -1,4 +1,4 @@
-name: Build
+name: Fast_Build
 on:
   workflow_dispatch:
   push:
