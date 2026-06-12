@@ -77,6 +77,7 @@ struct ChmModel : DocController {
 
     StrVec pages;
     int currentPageNo = 1;
+    AutoFreeStr currentPageUrl;
     HtmlWindow* htmlWindow = nullptr;
     HtmlWindowCallback* htmlWindowCb = nullptr;
     float initZoom = kInvalidZoom;
@@ -101,6 +102,7 @@ struct ChmModel : DocController {
     void SaveHtmlScrollPosForPage(int pageNo);
     void SaveHtmlScrollPosForUrl(const char* url, PointF pos);
     bool GetSavedHtmlScrollPosForPage(int pageNo, PointF* pos) const;
+    bool GetSavedHtmlScrollPosForUrl(const char* url, PointF* pos) const;
     void RestoreHtmlScrollPos();
     void ZoomTo(float zoomLevel) const;
 };

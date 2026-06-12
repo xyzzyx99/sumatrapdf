@@ -111,6 +111,10 @@ void ChmModel::GoToPage(int pageNo, bool) {
     if (!ValidPageNo(pageNo)) {
         return;
     }
+    if (pageNo == currentPageNo && currentPageUrl && *currentPageUrl) {
+        DisplayPage(currentPageUrl);
+        return;
+    }
     DisplayPage(pages.At(pageNo - 1));
 }
 
@@ -194,23 +198,24 @@ bool ChmModel::DisplayPage(const char* pageUrl) {
     }
 
     TempStr url = url::GetFullPathTemp(pageUrl);
-    int oldPageNo = currentPageNo;
+    bool wasSameUrl = currentPageUrl && str::Eq(currentPageUrl, url);
     int pageNo = pages.Find(url) + 1;
-    bool restoreScrollAfterLoad = restoreHtmlScrollPos && pageNo > 0 && pageNo == oldPageNo;
+    bool restoreScrollAfterLoad = restoreHtmlScrollPos && wasSameUrl;
+    if (!restoreScrollAfterLoad) {
+        SaveHtmlScrollPos();
+        skipNextBeforeNavigateScrollSave = true;
+    }
+    currentPageUrl.SetCopy(url);
     if (pageNo > 0) {
-        if (!restoreScrollAfterLoad) {
-            SaveHtmlScrollPosForPage(oldPageNo);
-            skipNextBeforeNavigateScrollSave = true;
-        }
         currentPageNo = pageNo;
+    }
 
-        PointF savedPos;
-        if (GetSavedHtmlScrollPosForPage(pageNo, &savedPos)) {
-            htmlScrollPos = savedPos;
-            restoreHtmlScrollPos = true;
-        } else if (!restoreScrollAfterLoad) {
-            restoreHtmlScrollPos = false;
-        }
+    PointF savedPos;
+    if (GetSavedHtmlScrollPosForUrl(url, &savedPos)) {
+        htmlScrollPos = savedPos;
+        restoreHtmlScrollPos = true;
+    } else if (!restoreScrollAfterLoad) {
+        restoreHtmlScrollPos = false;
     }
 
     // This is a hack that seems to be needed for some chm files where
@@ -228,7 +233,7 @@ bool ChmModel::DisplayPage(const char* pageUrl) {
     }
 
     htmlWindow->NavigateToDataUrl(pageUrl);
-    return pageNo > 0;
+    return true;
 }
 
 void ChmModel::ScrollTo(int pageNo, RectF rect, float zoom) {
@@ -319,11 +324,7 @@ void ChmModel::SetZoomVirtual(float zoom, Point*) {
 }
 
 void ChmModel::SaveHtmlScrollPos() {
-    SaveHtmlScrollPosForPage(currentPageNo);
-}
-
-void ChmModel::SaveHtmlScrollPosForPage(int pageNo) {
-    if (!htmlWindow || !ValidPageNo(pageNo)) {
+    if (!htmlWindow) {
         return;
     }
     Point pos = htmlWindow->GetScrollPos();
@@ -331,6 +332,17 @@ void ChmModel::SaveHtmlScrollPosForPage(int pageNo) {
         return;
     }
     htmlScrollPos = PointF((float)pos.x, (float)pos.y);
+    if (currentPageUrl && *currentPageUrl) {
+        SaveHtmlScrollPosForUrl(currentPageUrl, htmlScrollPos);
+        return;
+    }
+    SaveHtmlScrollPosForPage(currentPageNo);
+}
+
+void ChmModel::SaveHtmlScrollPosForPage(int pageNo) {
+    if (!ValidPageNo(pageNo)) {
+        return;
+    }
     SaveHtmlScrollPosForUrl(pages.At(pageNo - 1), htmlScrollPos);
 }
 
@@ -354,8 +366,15 @@ bool ChmModel::GetSavedHtmlScrollPosForPage(int pageNo, PointF* pos) const {
     if (!pos || !ValidPageNo(pageNo)) {
         return false;
     }
+    return GetSavedHtmlScrollPosForUrl(pages.At(pageNo - 1), pos);
+}
 
-    TempStr plainUrl = url::GetFullPathTemp(pages.At(pageNo - 1));
+bool ChmModel::GetSavedHtmlScrollPosForUrl(const char* url, PointF* pos) const {
+    if (!url || !pos) {
+        return false;
+    }
+
+    TempStr plainUrl = url::GetFullPathTemp(url);
     int idx = htmlScrollUrls.Find(plainUrl);
     if (idx < 0) {
         return false;
@@ -501,14 +520,14 @@ void ChmModel::OnDocumentComplete(const char* url) {
         ++url;
     }
     TempStr toFind = url::GetFullPathTemp(url);
+    currentPageUrl.SetCopy(toFind);
     int pageNo = pages.Find(toFind) + 1;
-    if (!pageNo) {
-        return;
+    if (pageNo > 0) {
+        currentPageNo = pageNo;
     }
-    currentPageNo = pageNo;
 
     PointF savedPos;
-    if (GetSavedHtmlScrollPosForPage(pageNo, &savedPos)) {
+    if (GetSavedHtmlScrollPosForUrl(toFind, &savedPos)) {
         htmlScrollPos = savedPos;
         restoreHtmlScrollPos = true;
     }
@@ -532,7 +551,7 @@ void ChmModel::OnDocumentComplete(const char* url) {
     ZoomTo(zoomVirtual);
     RestoreHtmlScrollPos();
 
-    if (cb) {
+    if (cb && pageNo > 0) {
         cb->PageNoChanged(this, pageNo);
     }
 }
