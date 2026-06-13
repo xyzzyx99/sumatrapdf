@@ -1,4 +1,4 @@
-[![Build](https://github.com/sumatrapdfreader/sumatrapdf/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/sumatrapdfreader/sumatrapdf/actions/workflows/build.yml)
+[?[Build](https://github.com/sumatrapdfreader/sumatrapdf/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/sumatrapdfreader/sumatrapdf/actions/workflows/build.yml)
 ## SumatraPDF Reader
 
 SumatraPDF is a multi-format (PDF, EPUB, MOBI, CBZ, CBR, FB2, CHM, XPS, DjVu) reader
@@ -12,7 +12,8 @@ More Information:
 
 ## Fix bugs
 
-CHM Zoom in (+) button does not work properly
+* CHM Zoom in (+) button does not work properly
+* CHM does not keep the original page when switching tabs back and forth
 
 ## Added functions
 
