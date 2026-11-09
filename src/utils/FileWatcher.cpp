@@ -295,19 +295,16 @@ static void StartMonitoringDirForChanges(WatchedDir* wd) {
 
 static DWORD GetTimeoutInMs() {
     ScopedCritSec cs(&gFileWatcherMutex);
-    for (WatchedFile* wf = gWatchedFiles; wf; wf = wf->next) {
-        if (wf->isManualCheck) {
-            return FILEWATCH_DELAY_IN_MS;
-        }
-    }
-    return INFINITE;
+    // Check all watched files periodically as a fallback for missed
+    // ReadDirectoryChangesW notifications (including files on NTFS/ReFS).
+    return gWatchedFiles ? FILEWATCH_DELAY_IN_MS : INFINITE;
 }
 
 static void RunManualChecks() {
     ScopedCritSec cs(&gFileWatcherMutex);
 
     for (WatchedFile* wf = gWatchedFiles; wf; wf = wf->next) {
-        if (!wf->isManualCheck) {
+        if (wf->ignore) {
             continue;
         }
         if (FileStateChanged(wf->filePath, &wf->fileState)) {
@@ -442,14 +439,13 @@ static WatchedFile* NewWatchedFile(const char* filePath, const Func0& onFileChan
 
     ListInsertFront(&gWatchedFiles, wf);
 
-    if (wf->isManualCheck) {
-        GetFileState(filePath, &wf->fileState);
-        AwakeWatcherThread();
-    } else {
-        if (newDir) {
-            StartMonitoringDirForChanges(wf->watchedDir);
-        }
+    // Initialize the polling baseline for every file, even when normal
+    // directory-change notifications are available.
+    GetFileState(filePath, &wf->fileState);
+    if (!wf->isManualCheck && newDir) {
+        StartMonitoringDirForChanges(wf->watchedDir);
     }
+    AwakeWatcherThread();
 
     return wf;
 }
