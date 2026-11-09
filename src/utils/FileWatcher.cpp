@@ -84,6 +84,7 @@ struct WatchedFile {
     // to check if it changed manually, by periodically checking
     // file state for changes
     bool isManualCheck = false;
+    bool forcePeriodicCheck = false;
     FileWatcherState fileState;
 
     bool ignore = false;
@@ -295,16 +296,19 @@ static void StartMonitoringDirForChanges(WatchedDir* wd) {
 
 static DWORD GetTimeoutInMs() {
     ScopedCritSec cs(&gFileWatcherMutex);
-    // Check all watched files periodically as a fallback for missed
-    // ReadDirectoryChangesW notifications (including files on NTFS/ReFS).
-    return gWatchedFiles ? FILEWATCH_DELAY_IN_MS : INFINITE;
+    for (WatchedFile* wf = gWatchedFiles; wf; wf = wf->next) {
+        if (wf->isManualCheck || wf->forcePeriodicCheck) {
+            return FILEWATCH_DELAY_IN_MS;
+        }
+    }
+    return INFINITE;
 }
 
 static void RunManualChecks() {
     ScopedCritSec cs(&gFileWatcherMutex);
 
     for (WatchedFile* wf = gWatchedFiles; wf; wf = wf->next) {
-        if (wf->ignore) {
+        if (wf->ignore || (!wf->isManualCheck && !wf->forcePeriodicCheck)) {
             continue;
         }
         if (FileStateChanged(wf->filePath, &wf->fileState)) {
@@ -402,7 +406,7 @@ static WatchedDir* NewWatchedDir(const char* dirPath) {
 }
 
 static WatchedFile* NewWatchedFile(const char* filePath, const Func0& onFileChangedCb,
-                                   bool enableManualCheckOnNetworkDrives) {
+                                   bool enableManualCheckOnNetworkDrives, bool forcePeriodicCheck) {
     bool isManualCheck = !path::SupportsChangeNotifications(filePath);
     bool isNetworkDrive = path::IsOnNetworkDrive(filePath);
     if (isManualCheck) {
@@ -436,6 +440,7 @@ static WatchedFile* NewWatchedFile(const char* filePath, const Func0& onFileChan
     wf->onFileChangedCb = onFileChangedCb;
     wf->watchedDir = wd;
     wf->isManualCheck = isManualCheck;
+    wf->forcePeriodicCheck = forcePeriodicCheck;
 
     ListInsertFront(&gWatchedFiles, wf);
 
@@ -467,7 +472,8 @@ We take ownership of observer object.
 Returns a cancellation token that can be used in FileWatcherUnsubscribe(). That
 way we can support multiple callers subscribing to the same file.
 */
-WatchedFile* FileWatcherSubscribe(const char* path, const Func0& onFileChangedCb, bool enableManualCheck) {
+WatchedFile* FileWatcherSubscribe(const char* path, const Func0& onFileChangedCb, bool enableManualCheck,
+                                  bool forcePeriodicCheck) {
     // logf("FileWatcherSubscribe() path: %s\n", path);
 
     if (!file::Exists(path)) {
@@ -490,7 +496,7 @@ WatchedFile* FileWatcherSubscribe(const char* path, const Func0& onFileChangedCb
         gThreadHandle = StartThread(fn, "FileWatcherThread");
     }
 
-    return NewWatchedFile(path, onFileChangedCb, enableManualCheck);
+    return NewWatchedFile(path, onFileChangedCb, enableManualCheck, forcePeriodicCheck);
 }
 
 static bool IsWatchedDirReferenced(WatchedDir* wd) {

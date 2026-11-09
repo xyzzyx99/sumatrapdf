@@ -4,7 +4,8 @@
 struct WatchedFile;
 
 void FileWatcherInit(void);
-WatchedFile* FileWatcherSubscribe(const char* path, const Func0& onFileChangedCb, bool enableManualCheck = false);
+WatchedFile* FileWatcherSubscribe(const char* path, const Func0& onFileChangedCb, bool enableManualCheck = false,
+                                  bool forcePeriodicCheck = false);
 void FileWatcherUnsubscribe(WatchedFile* wf);
 void FileWatcherWaitForShutdown(void);
 void WatchedFileSetIgnore(WatchedFile* wf, bool ignore);

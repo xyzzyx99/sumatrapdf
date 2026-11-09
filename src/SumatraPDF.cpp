@@ -1909,7 +1909,8 @@ MainWindow* LoadDocumentFinish(LoadArgs* args) {
         // we'll now recommend ReloadModifiedDocuments = false for those
         // who complain
         bool enableManualCheck = true;
-        currTab->watcher = FileWatcherSubscribe(path, fn, enableManualCheck);
+        currTab->watcher = FileWatcherSubscribe(path, fn, enableManualCheck,
+                                                gGlobalPrefs->forcedModifiedDocumentCheck);
     }
 
     if (gGlobalPrefs->rememberOpenedFiles) {
